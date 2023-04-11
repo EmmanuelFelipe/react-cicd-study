@@ -1,0 +1,75 @@
+name: CICD Devel Workflow
+
+on: 
+    push:
+      branches: [devel]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [15]
+        
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm install
+      - run: npm run lint
+      - run: npm install -g prettier && npm run prettier
+      - run: npm run test
+      - run: npm run build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: builded-artifact
+          path: build/
+
+  deploy:
+
+    runs-on: ubuntu-latest
+    needs: [build]
+    env:
+      ENV: devel
+      DOMAIN: aws.emmanuel.cloud
+    permissions:
+      id-token: write
+      contents: read
+        
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: builded-artifact
+          path: build/
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Create AWS resources
+        env:
+          
+          TF_VAR_endpoint: ${{ github.event.repository.name }}.${{ env.ENV }}.${{ env.DOMAIN }}
+          TF_VAR_region: ${{ secrets.AWS_DEFAULT_REGION }}
+          TF_VAR_domain: ${{ env.DOMAIN }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          STATE_NAME: ${{ github.event.repository.name }}.${{ env.ENV }}
+        run: |
+          cd terraform && terraform init -backend-config="key=$STATE_NAME.tfstate" -backend-config="bucket=$AWS_S3_BUCKET" -backend-config="region=$TF_VAR_region"
+          terraform apply --auto-approve
+
+      - name: Create AWS resources
+        env:
+          TF_VAR_endpoint: ${{ github.event.repository.name }}.${{ env.ENV }}.${{ env.DOMAIN}}
+        run: |
+          aws s3 sync build/ s3://$TF_VAR_endpoint
