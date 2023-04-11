@@ -71,4 +71,4 @@ jobs:
         env:
           TF_VAR_endpoint: ${{ github.event.repository.name }}.${{ env.ENV }}.${{ env.DOMAIN}}
         run: |
-          aws s3 sync . s3://$TF_VAR_endpoint
+          aws s3 sync build/ s3://$TF_VAR_endpoint
