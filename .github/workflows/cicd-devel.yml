@@ -37,6 +37,7 @@ jobs:
     needs: [build]
     env:
       ENV: devel
+      DOMAIN: aws.emmanuel.cloud
     permissions:
       id-token: write
       contents: read
@@ -57,9 +58,9 @@ jobs:
 
       - name: Create AWS resources
         env:
-          TF_VAR_endpoint: ${{ github.event.repository.name }}.${{ env.ENV }}.${{ secrets.DOMAIN}}
+          TF_VAR_endpoint: ${{ github.event.repository.name }}.${{ env.ENV }}.${{ env.DOMAIN}}
           TF_VAR_region: ${{ secrets.AWS_DEFAULT_REGION }}
-          TF_VAR_domain: ${{ secrets.DOMAIN}}
+          TF_VAR_domain: ${{ env.DOMAIN}}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET}}
         run: |
           cd terraform && terraform init -backend-config="$TF_VAR_endpoint.tfstate" -backend-config="bucket=$AWS_S3_BUCKET" -backend-config="region=TF_VAR_region"
@@ -67,6 +68,6 @@ jobs:
 
       - name: Create AWS resources
         env:
-          TF_VAR_endpoint: ${{ github.event.repository.name }}.${{ env.ENV }}.${{ secrets.DOMAIN}}
+          TF_VAR_endpoint: ${{ github.event.repository.name }}.${{ env.ENV }}.${{ env.DOMAIN}}
         run: |
           aws s3 sync . s3://$TF_VAR_endpoint
